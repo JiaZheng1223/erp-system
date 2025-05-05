@@ -48,10 +48,23 @@ export async function createOrder(
   order: Omit<Order, 'id' | 'created_at'>, 
   items: Omit<OrderItem, 'id' | 'order_id'>[]
 ): Promise<{ order: Order | null, items: OrderItem[] }> {
+  // 生成訂購單ID
+  const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  const orderId = `O-${today}-${random}`;
+  
   // 開始事務
   const { data: orderData, error: orderError } = await supabase
     .from('orders')
-    .insert([order])
+    .insert([{ 
+      ...order, 
+      id: orderId,
+      delivery_method: order.delivery_method || null,
+      shipping_company: order.shipping_company || null,
+      shipping_address: order.shipping_address || null,
+      contact_person: order.contact_person || null,
+      contact_phone: order.contact_phone || null
+    }])
     .select()
     .single()
 
@@ -84,7 +97,14 @@ export async function createOrder(
 export async function updateOrder(id: string, updates: Partial<Omit<Order, 'id' | 'created_at'>>): Promise<Order | null> {
   const { data, error } = await supabase
     .from('orders')
-    .update(updates)
+    .update({
+      ...updates,
+      delivery_method: updates.delivery_method || null,
+      shipping_company: updates.shipping_company || null,
+      shipping_address: updates.shipping_address || null,
+      contact_person: updates.contact_person || null,
+      contact_phone: updates.contact_phone || null
+    })
     .eq('id', id)
     .select()
     .single()
@@ -240,4 +260,110 @@ export async function getOrderStats(): Promise<{ pending: number, processing: nu
   }
 
   return stats
+}
+
+// 更新訂購單及其項目
+export async function updateOrderWithItems(
+  id: string,
+  updates: Partial<Omit<Order, 'id' | 'created_at'>>,
+  items: {
+    existing: { id: number, updates: Partial<Omit<OrderItem, 'id' | 'order_id'>> }[],
+    new: Omit<OrderItem, 'id' | 'order_id'>[],
+    deleted: number[]
+  }
+): Promise<{ order: Order | null, items: OrderItem[] }> {
+  // 開始事務，確保數據一致性
+  try {
+    // 更新訂購單
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .update({
+        ...updates,
+        delivery_method: updates.delivery_method || null,
+        shipping_company: updates.shipping_company || null,
+        shipping_address: updates.shipping_address || null,
+        contact_person: updates.contact_person || null,
+        contact_phone: updates.contact_phone || null
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (orderError) {
+      console.error(`更新訂購單失敗 (ID: ${id}):`, orderError)
+      return { order: null, items: [] }
+    }
+
+    // 更新現有項目
+    for (const item of items.existing) {
+      const { error } = await supabase
+        .from('order_items')
+        .update(item.updates)
+        .eq('id', item.id)
+        
+      if (error) {
+        console.error(`更新訂購單項目失敗 (ID: ${item.id}):`, error)
+      }
+    }
+
+    // 添加新項目
+    if (items.new.length > 0) {
+      const newItemsWithOrderId = items.new.map(item => ({
+        ...item,
+        order_id: id
+      }))
+
+      const { error } = await supabase
+        .from('order_items')
+        .insert(newItemsWithOrderId)
+        
+      if (error) {
+        console.error(`添加新訂購單項目失敗:`, error)
+      }
+    }
+
+    // 刪除項目
+    if (items.deleted.length > 0) {
+      const { error } = await supabase
+        .from('order_items')
+        .delete()
+        .in('id', items.deleted)
+        
+      if (error) {
+        console.error(`刪除訂購單項目失敗:`, error)
+      }
+    }
+
+    // 獲取更新後的項目
+    const { data: updatedItems, error: itemsError } = await supabase
+      .from('order_items')
+      .select('*')
+      .eq('order_id', id)
+
+    if (itemsError) {
+      console.error(`獲取更新後的訂購單項目失敗 (Order ID: ${id}):`, itemsError)
+      return { order, items: [] }
+    }
+
+    return { order, items: updatedItems || [] }
+  } catch (err) {
+    console.error(`更新訂購單及項目時發生錯誤 (ID: ${id}):`, err)
+    return { order: null, items: [] }
+  }
+}
+
+// 根據經銷商ID獲取訂購單
+export async function getOrdersByDistributor(distributorId: number): Promise<Order[]> {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('distributor_id', distributorId)
+    .order('order_date', { ascending: false })
+
+  if (error) {
+    console.error(`獲取經銷商訂購單失敗 (Distributor ID: ${distributorId}):`, error)
+    return []
+  }
+
+  return data || []
 } 

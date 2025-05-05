@@ -64,11 +64,16 @@ export interface Order {
   distributor_name: string
   customer_po: string
   order_date: string
-  delivery_date: string
+  delivery_date?: string
   total_amount: number
   status: string
   notes?: string
   created_at?: string
+  delivery_method?: string
+  shipping_company?: string
+  shipping_address?: string
+  contact_person?: string
+  contact_phone?: string
 }
 
 // 訂購單項目
@@ -90,6 +95,8 @@ export interface Purchase {
   supplier_name: string
   purchaser: string
   purchase_date: string
+  expected_delivery_date?: string
+  total_amount?: number
   status: string
   notes?: string
   created_at?: string
@@ -102,4 +109,7 @@ export interface PurchaseItem {
   material_id: number
   material_name: string
   quantity: number
+  price?: number
+  total?: number
+  status?: string
 } 

@@ -115,6 +115,8 @@ CREATE TABLE public.purchases (
   supplier_name TEXT NOT NULL,
   purchaser TEXT NOT NULL,
   purchase_date DATE NOT NULL,
+  expected_delivery_date DATE,
+  total_amount NUMERIC(12, 2) DEFAULT 0,
   status TEXT NOT NULL DEFAULT '草稿',
   notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -129,7 +131,10 @@ CREATE TABLE public.purchase_items (
   purchase_id TEXT NOT NULL REFERENCES public.purchases(id) ON DELETE CASCADE,
   material_id BIGINT NOT NULL REFERENCES public.materials(id),
   material_name TEXT NOT NULL,
-  quantity INTEGER NOT NULL
+  quantity INTEGER NOT NULL,
+  price NUMERIC(10, 2) DEFAULT 0,
+  total NUMERIC(12, 2) DEFAULT 0,
+  status TEXT DEFAULT '待處理'
 );
 ```
 

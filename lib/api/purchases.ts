@@ -48,10 +48,15 @@ export async function createPurchase(
   purchase: Omit<Purchase, 'id' | 'created_at'>, 
   items: Omit<PurchaseItem, 'id' | 'purchase_id'>[]
 ): Promise<{ purchase: Purchase | null, items: PurchaseItem[] }> {
+  // 生成採購單ID
+  const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  const purchaseId = `P-${today}-${random}`;
+  
   // 插入採購單
   const { data: purchaseData, error: purchaseError } = await supabase
     .from('purchases')
-    .insert([purchase])
+    .insert([{ ...purchase, id: purchaseId }])
     .select()
     .single()
 
@@ -80,21 +85,87 @@ export async function createPurchase(
   return { purchase: purchaseData, items: itemsData || [] }
 }
 
-// 更新採購單
-export async function updatePurchase(id: string, updates: Partial<Omit<Purchase, 'id' | 'created_at'>>): Promise<Purchase | null> {
-  const { data, error } = await supabase
-    .from('purchases')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single()
-
-  if (error) {
-    console.error(`更新採購單失敗 (ID: ${id}):`, error)
-    return null
+// 更新採購單及其項目
+export async function updatePurchaseWithItems(
+  id: string,
+  updates: Partial<Omit<Purchase, 'id' | 'created_at'>>,
+  items: {
+    existing: { id: number, updates: Partial<Omit<PurchaseItem, 'id' | 'purchase_id'>> }[],
+    new: Omit<PurchaseItem, 'id' | 'purchase_id'>[],
+    deleted: number[]
   }
+): Promise<{ purchase: Purchase | null, items: PurchaseItem[] }> {
+  // 開始事務，確保數據一致性
+  try {
+    // 更新採購單
+    const { data: purchase, error: purchaseError } = await supabase
+      .from('purchases')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
 
-  return data
+    if (purchaseError) {
+      console.error(`更新採購單失敗 (ID: ${id}):`, purchaseError)
+      return { purchase: null, items: [] }
+    }
+
+    // 更新現有項目
+    for (const item of items.existing) {
+      const { error } = await supabase
+        .from('purchase_items')
+        .update(item.updates)
+        .eq('id', item.id)
+        
+      if (error) {
+        console.error(`更新採購單項目失敗 (ID: ${item.id}):`, error)
+      }
+    }
+
+    // 添加新項目
+    if (items.new.length > 0) {
+      const newItemsWithPurchaseId = items.new.map(item => ({
+        ...item,
+        purchase_id: id
+      }))
+
+      const { error } = await supabase
+        .from('purchase_items')
+        .insert(newItemsWithPurchaseId)
+        
+      if (error) {
+        console.error(`添加新採購單項目失敗:`, error)
+      }
+    }
+
+    // 刪除項目
+    if (items.deleted.length > 0) {
+      const { error } = await supabase
+        .from('purchase_items')
+        .delete()
+        .in('id', items.deleted)
+        
+      if (error) {
+        console.error(`刪除採購單項目失敗:`, error)
+      }
+    }
+
+    // 獲取更新後的項目
+    const { data: updatedItems, error: itemsError } = await supabase
+      .from('purchase_items')
+      .select('*')
+      .eq('purchase_id', id)
+
+    if (itemsError) {
+      console.error(`獲取更新後的採購單項目失敗 (Purchase ID: ${id}):`, itemsError)
+      return { purchase, items: [] }
+    }
+
+    return { purchase, items: updatedItems || [] }
+  } catch (err) {
+    console.error(`更新採購單及項目時發生錯誤 (ID: ${id}):`, err)
+    return { purchase: null, items: [] }
+  }
 }
 
 // 更新採購單狀態
@@ -229,4 +300,37 @@ export async function getPurchaseStats(): Promise<{ draft: number, sent: number,
   }
 
   return stats
+}
+
+// 更新採購單
+export async function updatePurchase(id: string, updates: Partial<Omit<Purchase, 'id' | 'created_at'>>): Promise<Purchase | null> {
+  const { data, error } = await supabase
+    .from('purchases')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) {
+    console.error(`更新採購單失敗 (ID: ${id}):`, error)
+    return null
+  }
+
+  return data
+}
+
+// 根據供應商ID獲取採購單
+export async function getPurchasesBySupplier(supplierId: number): Promise<Purchase[]> {
+  const { data, error } = await supabase
+    .from('purchases')
+    .select('*')
+    .eq('supplier_id', supplierId)
+    .order('purchase_date', { ascending: false })
+
+  if (error) {
+    console.error(`獲取供應商採購單失敗 (Supplier ID: ${supplierId}):`, error)
+    return []
+  }
+
+  return data || []
 } 
