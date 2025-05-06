@@ -129,7 +129,7 @@ export default function ProfileSettings() {
           success: false,
           message: result.error
         })
-      } else {
+      } else if (result.url) {
         // 更新上下文中的用戶資料
         updateUser({
           ...user,
@@ -139,6 +139,11 @@ export default function ProfileSettings() {
         setUpdateStatus({
           success: true,
           message: '頭像已成功更新'
+        })
+      } else {
+        setUpdateStatus({
+          success: false,
+          message: '上傳頭像失敗，未獲得有效的URL'
         })
       }
     } catch (error) {

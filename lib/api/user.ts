@@ -123,7 +123,7 @@ export async function getUserProfile(userId: string) {
  * 
  * @param userId 用戶ID
  * @param file 頭像文件
- * @returns 上傳結果
+ * @returns 上傳結果，包含公共URL
  */
 export async function uploadAvatar(userId: string, file: File) {
   try {
@@ -142,7 +142,7 @@ export async function uploadAvatar(userId: string, file: File) {
     
     if (uploadError) {
       console.error('上傳頭像失敗:', uploadError.message)
-      return { url: null, error: uploadError.message }
+      return { url: undefined, error: uploadError.message }
     }
     
     // 獲取公共URL
@@ -159,6 +159,6 @@ export async function uploadAvatar(userId: string, file: File) {
     return { url: data.publicUrl, error: null }
   } catch (err) {
     console.error('上傳頭像時出錯:', err)
-    return { url: null, error: '上傳頭像時發生未知錯誤' }
+    return { url: undefined, error: '上傳頭像時發生未知錯誤' }
   }
 } 
