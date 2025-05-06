@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { AuthProvider } from '@/lib/contexts/AuthContext'
 
 export const metadata: Metadata = {
   title: '錡利科技管理系統',
@@ -14,8 +15,10 @@ export default function RootLayout({
   return (
     <html lang="zh-Hant-TW">
       <body>
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   )
-} 
+}

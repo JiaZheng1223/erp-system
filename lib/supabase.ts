@@ -3,9 +3,38 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// 修改客戶端初始化，添加持久化和會話配置
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  },
+  // 添加調試日誌
+  global: {
+    fetch: (...args) => {
+      console.log('Supabase API請求:', args[0])
+      return fetch(...args)
+    }
+  }
+})
+
+// 輸出客戶端初始化結果
+console.log('Supabase客戶端已初始化', {
+  url: supabaseUrl ? '已設置' : '未設置',
+  key: supabaseAnonKey ? '已設置' : '未設置'
+})
 
 // 定義數據庫表結構類型
+
+// 用戶
+export interface User {
+  id: string
+  email: string
+  role?: string
+  created_at?: string
+  updated_at?: string
+}
 
 // 經銷商
 export interface Distributor {
@@ -74,6 +103,7 @@ export interface Order {
   shipping_address?: string
   contact_person?: string
   contact_phone?: string
+  logistics_company?: string
 }
 
 // 訂購單項目

@@ -21,7 +21,7 @@ const statusOptions = ['待處理', '處理中', '待出貨', '已完成']
 const itemStatusOptions = ['未接收', '已接收', '已完成']
 
 // 運送方式選項
-const deliveryMethodOptions = ['自取', '物流', '工廠發貨', '等待通知']
+const deliveryMethodOptions = ['自取', '郵寄', '代寄物流','工廠發貨', '等待通知' ]
 
 // 成品類別選項
 const categoryOptions = ['紙框', '鐵框', '迷你摺', '袋型濾網', '無', '所有類別']
@@ -51,7 +51,8 @@ export default function OrderForm({ id, onSuccess, onCancel }: OrderFormProps) {
     shipping_company: '',
     shipping_address: '',
     contact_person: '',
-    contact_phone: ''
+    contact_phone: '',
+    logistics_company: ''
   })
   
   // 儲存項目ID用於編輯模式
@@ -111,7 +112,8 @@ export default function OrderForm({ id, onSuccess, onCancel }: OrderFormProps) {
               shipping_company: order.shipping_company || '',
               shipping_address: order.shipping_address || '',
               contact_person: order.contact_person || '',
-              contact_phone: order.contact_phone || ''
+              contact_phone: order.contact_phone || '',
+              logistics_company: order.logistics_company || ''
             })
             
             if (items.length > 0) {
@@ -360,10 +362,10 @@ export default function OrderForm({ id, onSuccess, onCancel }: OrderFormProps) {
       return
     }
     
-    // 驗證物流或工廠發貨相關欄位
-    if ((orderForm.delivery_method === '物流' || orderForm.delivery_method === '工廠發貨')) {
+    // 驗證代寄物流、工廠發貨或郵寄相關欄位
+    if ((orderForm.delivery_method === '代寄物流' || orderForm.delivery_method === '工廠發貨' || orderForm.delivery_method === '郵寄')) {
       if (!orderForm.shipping_company) {
-        setError('請輸入寄送公司')
+        setError(orderForm.delivery_method === '代寄物流' ? '請輸入寄送公司' : '請輸入寄送公司')
         return
       }
       if (!orderForm.shipping_address) {
@@ -376,6 +378,11 @@ export default function OrderForm({ id, onSuccess, onCancel }: OrderFormProps) {
       }
       if (!orderForm.contact_phone) {
         setError('請輸入聯絡人電話')
+        return
+      }
+      // 特別驗證代寄物流的物流公司名稱
+      if (orderForm.delivery_method === '代寄物流' && !orderForm.logistics_company) {
+        setError('請輸入物流公司名稱')
         return
       }
     }
@@ -582,8 +589,8 @@ export default function OrderForm({ id, onSuccess, onCancel }: OrderFormProps) {
             </select>
           </div>
 
-          {/* 運送方式為「物流」或「工廠發貨」時顯示的欄位 */}
-          {(orderForm.delivery_method === '物流' || orderForm.delivery_method === '工廠發貨') && (
+          {/* 運送方式為「代寄物流」、「工廠發貨」或「郵寄」時顯示的欄位 */}
+          {(orderForm.delivery_method === '代寄物流' || orderForm.delivery_method === '工廠發貨' || orderForm.delivery_method === '郵寄') && (
             <>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="shipping_company">
@@ -600,6 +607,28 @@ export default function OrderForm({ id, onSuccess, onCancel }: OrderFormProps) {
                   placeholder="請輸入寄送公司"
                 />
               </div>
+
+              {/* 當運送方式為代寄物流時，額外顯示物流公司名稱欄位 */}
+              {orderForm.delivery_method === '代寄物流' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="logistics_company">
+                    物流公司名稱 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="logistics_company"
+                    name="logistics_company"
+                    value={orderForm.logistics_company || ''}
+                    onChange={handleOrderChange}
+                    required
+                    className="input w-full"
+                    placeholder="請輸入物流公司名稱"
+                  />
+                  <p className="text-xs text-blue-600 mt-1">
+                    請填寫正確的物流公司全名，以便確認貨物寄送
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="shipping_address">

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Header from '@/app/components/Header'
-import { FaShoppingBag, FaShoppingCart, FaBox, FaCheckCircle } from 'react-icons/fa'
+import { FaShoppingBag, FaShoppingCart, FaBox, FaCheckCircle, FaUser } from 'react-icons/fa'
 import { getDashboardData } from '@/lib/api/dashboard'
 
 // 定義儀表板數據的類型
@@ -76,6 +76,7 @@ export default function Dashboard() {
           {error}
         </div>
       )}
+
 
       {loading ? (
         <div className="flex justify-center items-center h-64">

@@ -63,7 +63,8 @@ export async function createOrder(
       shipping_company: order.shipping_company || null,
       shipping_address: order.shipping_address || null,
       contact_person: order.contact_person || null,
-      contact_phone: order.contact_phone || null
+      contact_phone: order.contact_phone || null,
+      logistics_company: order.logistics_company || null
     }])
     .select()
     .single()
@@ -103,7 +104,8 @@ export async function updateOrder(id: string, updates: Partial<Omit<Order, 'id' 
       shipping_company: updates.shipping_company || null,
       shipping_address: updates.shipping_address || null,
       contact_person: updates.contact_person || null,
-      contact_phone: updates.contact_phone || null
+      contact_phone: updates.contact_phone || null,
+      logistics_company: updates.logistics_company || null
     })
     .eq('id', id)
     .select()
@@ -283,7 +285,8 @@ export async function updateOrderWithItems(
         shipping_company: updates.shipping_company || null,
         shipping_address: updates.shipping_address || null,
         contact_person: updates.contact_person || null,
-        contact_phone: updates.contact_phone || null
+        contact_phone: updates.contact_phone || null,
+        logistics_company: updates.logistics_company || null
       })
       .eq('id', id)
       .select()

@@ -12,6 +12,27 @@
 
 以下是需要創建的表格及其欄位：
 
+### 用戶表 (profiles)
+
+Supabase 會自動創建 auth.users 表來存儲基本認證信息，但我們需要添加一個額外的用戶檔案表來存儲更多用戶相關信息。
+
+```sql
+CREATE TABLE public.profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  name TEXT,
+  avatar_url TEXT,
+  role TEXT DEFAULT 'user' NOT NULL CHECK (role IN ('admin', 'manager', 'user')),
+  department TEXT,
+  phone TEXT,
+  employee_id TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 為 profiles 表創建索引以提高查詢性能
+CREATE INDEX profiles_id_idx ON public.profiles(id);
+```
+
 ### 經銷商表 (distributors)
 
 ```sql
@@ -87,7 +108,13 @@ CREATE TABLE public.orders (
   total_amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT '待處理',
   notes TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  delivery_method TEXT,
+  shipping_company TEXT,
+  shipping_address TEXT,
+  contact_person TEXT,
+  contact_phone TEXT,
+  logistics_company TEXT
 );
 ```
 
@@ -142,9 +169,38 @@ CREATE TABLE public.purchase_items (
 
 為了確保數據安全，建議針對每個表格設置適當的行級安全政策。以下是建議的基本政策：
 
-### 啟用 RLS 並設置讀取政策
+### 特定用戶表的 RLS 政策
 
-對於每個表格執行以下操作：
+為 `profiles` 表設置 RLS 政策，讓用戶只能查看和修改自己的資料：
+
+```sql
+-- 啟用 RLS
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+-- 允許用戶讀取自己的資料
+CREATE POLICY "用戶可以查看自己的資料" ON public.profiles 
+FOR SELECT USING (auth.uid() = id);
+
+-- 允許用戶更新自己的資料
+CREATE POLICY "用戶可以更新自己的資料" ON public.profiles 
+FOR UPDATE USING (auth.uid() = id);
+
+-- 允許新用戶創建個人資料
+CREATE POLICY "新用戶可以創建個人資料" ON public.profiles 
+FOR INSERT WITH CHECK (auth.uid() = id);
+
+-- 管理員可以查看所有用戶資料（可選）
+CREATE POLICY "管理員可以查看所有用戶資料" ON public.profiles 
+FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'
+  )
+);
+```
+
+### 其他表格的 RLS 政策
+
+對於其他表格執行以下操作：
 
 1. 啟用 RLS：
 ```sql
@@ -177,27 +233,127 @@ FOR DELETE TO authenticated USING (true);
 
 ## 存儲桶設置
 
-為了保存產品和物料圖片，需要設置存儲桶：
+為了保存產品和物料圖片以及用戶頭像，需要設置存儲桶：
 
 1. 在 Supabase Dashboard 中，導航到 "Storage" 頁面
-2. 創建兩個新的存儲桶：
+2. 創建以下存儲桶：
    - `product-images`：用於存儲成品圖片
    - `material-images`：用於存儲物料圖片
-3. 為每個存儲桶設置公共訪問策略或適當的安全策略
+   - `avatars`：用於存儲用戶頭像
+3. 為每個存儲桶設置適當的安全策略：
+
+### 頭像存儲桶 RLS 策略
+
+```sql
+-- 允許已驗證用戶上傳自己的頭像
+CREATE POLICY "允許已驗證用戶上傳頭像" ON storage.objects
+FOR INSERT TO authenticated WITH CHECK (
+  bucket_id = 'avatars' AND 
+  (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- 允許已驗證用戶更新自己的頭像
+CREATE POLICY "允許已驗證用戶更新頭像" ON storage.objects
+FOR UPDATE TO authenticated USING (
+  bucket_id = 'avatars' AND 
+  (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- 允許公開讀取頭像
+CREATE POLICY "允許公開讀取頭像" ON storage.objects
+FOR SELECT USING (bucket_id = 'avatars');
+```
+
+## 用戶註冊與邀請設置
+
+對於管理系統，通常需要限制用戶註冊，以下是一些建議設置：
+
+1. 在 Supabase Dashboard 中，導航到 "Authentication" > "Providers"
+2. 禁用公開註冊，僅允許通過邀請鏈接註冊
+3. 配置郵件模板，使其符合公司品牌風格
+
+## 資料庫更新說明
+
+若您的系統已經部署並運行中，需要更新資料庫結構，請執行以下 SQL 語句：
+
+### 2023-08-01 新增訂購單物流相關欄位
+
+```sql
+-- 添加運送相關欄位
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS delivery_method TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS shipping_company TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS shipping_address TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS contact_person TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS contact_phone TEXT;
+```
+
+### 2023-09-15 新增物流公司名稱欄位
+
+```sql
+-- 添加物流公司名稱欄位
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS logistics_company TEXT;
+```
+
+### 2024-05-07 新增用戶配置表
+
+如果系統之前沒有用戶個人資料表，請執行上方的 profiles 表創建語句。如果已經有用戶使用系統，請執行以下遷移語句：
+
+```sql
+-- 為現有用戶創建個人資料記錄
+INSERT INTO public.profiles (id, name)
+SELECT id, email FROM auth.users
+WHERE NOT EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = users.id);
+```
+
+## 用戶資料處理說明
+
+當用戶更新其個人資料時，系統會執行以下操作：
+
+1. 通過 Supabase Auth API 更新用戶的元數據 (`user_metadata`)
+2. 同時更新 `profiles` 表中對應的記錄
+
+請確保在用戶註冊成功後立即創建其 `profiles` 表記錄，以便於後續的資料管理。
 
 ## 測試連接
 
-完成以上設置後，您應該能夠在應用中訪問數據庫。您可以在控制台中運行以下命令測試連接：
+完成以上設置後，您應該能夠在應用中訪問數據庫和用戶資料。您可以在控制台中運行以下命令測試連接：
 
 ```typescript
 import { supabase } from '@/lib/supabase'
 
 async function testConnection() {
-  const { data, error } = await supabase.from('distributors').select('*').limit(1)
-  if (error) {
-    console.error('連接失敗:', error)
+  // 測試讀取經銷商資料
+  const { data: distributors, error: distributorsError } = await supabase
+    .from('distributors')
+    .select('*')
+    .limit(1)
+  
+  if (distributorsError) {
+    console.error('經銷商資料連接失敗:', distributorsError)
   } else {
-    console.log('連接成功:', data)
+    console.log('經銷商資料連接成功:', distributors)
+  }
+  
+  // 測試獲取當前用戶
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  
+  if (userError) {
+    console.error('用戶資料獲取失敗:', userError)
+  } else if (userData.user) {
+    console.log('用戶資料獲取成功:', userData.user)
+    
+    // 測試獲取用戶個人資料
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userData.user.id)
+      .single()
+    
+    if (profileError) {
+      console.error('用戶個人資料獲取失敗:', profileError)
+    } else {
+      console.log('用戶個人資料獲取成功:', profile)
+    }
   }
 }
 
