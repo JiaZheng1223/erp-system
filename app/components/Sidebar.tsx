@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
+import Image from 'next/image'
 import { 
   FaChartBar, FaShoppingCart, FaCartPlus, FaUsers, 
   FaIndustry, FaBoxes, FaBox, FaSignOutAlt, 
@@ -78,12 +79,22 @@ const Sidebar = () => {
           onClick={toggleUserMenu}
         >
           <div className="flex items-center gap-3">
-            <div className="bg-primary h-10 w-10 rounded-full flex items-center justify-center">
-              <FaUser className="text-white" />
+            <div className="bg-primary h-10 w-10 rounded-full flex items-center justify-center overflow-hidden relative">
+              {user?.avatar_url ? (
+                <Image 
+                  src={user.avatar_url}
+                  alt={user.name || '用戶'}
+                  fill
+                  sizes="40px"
+                  className="object-cover"
+                />
+              ) : (
+                <FaUser className="text-white" />
+              )}
             </div>
             <div className="overflow-hidden">
               <div className="font-medium truncate">{user?.name || user?.email}</div>
-              <div className="text-xs text-gray-400 truncate">{user?.email}</div>
+              <div className="text-xs text-gray-400 truncate">{user?.role || '用戶'}</div>
             </div>
           </div>
           {showUserMenu ? <FaChevronUp /> : <FaChevronDown />}

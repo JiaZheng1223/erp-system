@@ -1,22 +1,29 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/lib/contexts/AuthContext'
 import Header from '@/app/components/Header'
-import { FaUser, FaEnvelope, FaSave } from 'react-icons/fa'
-import { updateUserProfile } from '@/lib/api/user'
+import { FaUser, FaEnvelope, FaSave, FaBuilding, FaPhone, FaIdCard, FaCamera } from 'react-icons/fa'
+import { updateUserProfile, uploadAvatar } from '@/lib/api/user'
+import Image from 'next/image'
 
 export default function ProfileSettings() {
   const { user, loading, updateUser } = useAuth()
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    department: '',
+    phone: '',
+    employee_id: ''
   })
   const [isUpdating, setIsUpdating] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
   const [updateStatus, setUpdateStatus] = useState<{
     success: boolean;
     message: string;
   } | null>(null)
+  
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // 當用戶資料加載完成後，填充表單
   useEffect(() => {
@@ -24,6 +31,9 @@ export default function ProfileSettings() {
       setFormData({
         name: user.name || '',
         email: user.email || '',
+        department: user.department || '',
+        phone: user.phone || '',
+        employee_id: user.employee_id || ''
       })
     }
   }, [user])
@@ -47,6 +57,8 @@ export default function ProfileSettings() {
       
       const result = await updateUserProfile(user.id, {
         name: formData.name,
+        department: formData.department,
+        phone: formData.phone
       })
       
       if (result.error) {
@@ -75,6 +87,75 @@ export default function ProfileSettings() {
       setIsUpdating(false)
     }
   }
+  
+  const handleAvatarClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click()
+    }
+  }
+  
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0 || !user) return
+    
+    const file = files[0]
+    
+    // 檢查檔案類型
+    if (!file.type.startsWith('image/')) {
+      setUpdateStatus({
+        success: false,
+        message: '請上傳圖片檔案'
+      })
+      return
+    }
+    
+    // 檢查檔案大小 (限制為 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      setUpdateStatus({
+        success: false,
+        message: '圖片大小不能超過 2MB'
+      })
+      return
+    }
+    
+    try {
+      setIsUploading(true)
+      setUpdateStatus(null)
+      
+      const result = await uploadAvatar(user.id, file)
+      
+      if (result.error) {
+        setUpdateStatus({
+          success: false,
+          message: result.error
+        })
+      } else {
+        // 更新上下文中的用戶資料
+        updateUser({
+          ...user,
+          avatar_url: result.url
+        })
+        
+        setUpdateStatus({
+          success: true,
+          message: '頭像已成功更新'
+        })
+      }
+    } catch (error) {
+      console.error('上傳頭像時出錯:', error)
+      setUpdateStatus({
+        success: false,
+        message: '上傳頭像時發生錯誤'
+      })
+    } finally {
+      setIsUploading(false)
+      
+      // 清除 file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
 
   if (loading) {
     return (
@@ -97,6 +178,51 @@ export default function ProfileSettings() {
             {updateStatus.message}
           </div>
         )}
+        
+        {/* 用戶頭像區域 */}
+        <div className="flex justify-center mb-8">
+          <div 
+            className="relative rounded-full overflow-hidden cursor-pointer group"
+            onClick={handleAvatarClick}
+          >
+            <div className="h-32 w-32 relative">
+              {user?.avatar_url ? (
+                <Image 
+                  src={user.avatar_url}
+                  alt={user.name || '用戶'}
+                  fill
+                  sizes="128px"
+                  className="object-cover"
+                />
+              ) : (
+                <div className="bg-primary h-full w-full flex items-center justify-center">
+                  <FaUser className="text-white h-16 w-16" />
+                </div>
+              )}
+            </div>
+            
+            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="text-white flex flex-col items-center">
+                <FaCamera className="h-8 w-8 mb-1" />
+                <span className="text-sm">更換頭像</span>
+              </div>
+            </div>
+            
+            {isUploading && (
+              <div className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center">
+                <div className="animate-spin h-10 w-10 border-4 border-white rounded-full border-t-transparent"></div>
+              </div>
+            )}
+            
+            <input 
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept="image/*"
+              onChange={handleFileChange}
+            />
+          </div>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
@@ -139,6 +265,69 @@ export default function ProfileSettings() {
               />
             </div>
           </div>
+          
+          <div>
+            <label htmlFor="department" className="block text-sm font-medium text-gray-700 mb-1">
+              部門
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FaBuilding className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                id="department"
+                name="department"
+                type="text"
+                value={formData.department}
+                onChange={handleInputChange}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                placeholder="請輸入您的部門"
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+              聯絡電話
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FaPhone className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                id="phone"
+                name="phone"
+                type="text"
+                value={formData.phone}
+                onChange={handleInputChange}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                placeholder="請輸入您的聯絡電話"
+              />
+            </div>
+          </div>
+          
+          {user?.employee_id && (
+            <div>
+              <label htmlFor="employee_id" className="block text-sm font-medium text-gray-700 mb-1">
+                員工編號
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FaIdCard className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="employee_id"
+                  name="employee_id"
+                  type="text"
+                  value={formData.employee_id}
+                  readOnly
+                  disabled
+                  className="bg-gray-100 block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                />
+              </div>
+              <p className="mt-1 text-xs text-gray-500">員工編號由系統管理員設定，無法自行修改</p>
+            </div>
+          )}
 
           <div className="flex justify-end">
             <button

@@ -5,6 +5,11 @@ export interface User {
   id: string
   email: string
   name?: string
+  avatar_url?: string
+  role?: string
+  department?: string
+  phone?: string
+  employee_id?: string
 }
 
 // 使用電子郵件和密碼登入
@@ -25,12 +30,28 @@ export async function signIn(email: string, password: string) {
       return { user: null, error: '無法獲取用戶信息' }
     }
 
+    // 獲取用戶的 profiles 表數據
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', data.user.id)
+      .single()
+    
+    if (profileError && profileError.code !== 'PGRST116') { // 忽略 not found 錯誤
+      console.error('獲取用戶個人資料失敗:', profileError.message)
+    }
+
     console.log('登入成功:', data.user.email)
     return { 
       user: {
         id: data.user.id,
         email: data.user.email,
-        name: data.user.user_metadata?.name
+        name: data.user.user_metadata?.name || profile?.name,
+        avatar_url: profile?.avatar_url,
+        role: profile?.role,
+        department: profile?.department,
+        phone: profile?.phone,
+        employee_id: profile?.employee_id
       } as User, 
       error: null 
     }
@@ -80,10 +101,26 @@ export async function getCurrentUser() {
       return { user: null, error: null }
     }
     
+    // 獲取用戶的 profiles 表數據
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', data.user.id)
+      .single()
+    
+    if (profileError && profileError.code !== 'PGRST116') { // 忽略 not found 錯誤
+      console.error('獲取用戶個人資料失敗:', profileError.message)
+    }
+    
     const user = {
       id: data.user.id,
       email: data.user.email,
-      name: data.user.user_metadata?.name
+      name: data.user.user_metadata?.name || profile?.name,
+      avatar_url: profile?.avatar_url,
+      role: profile?.role,
+      department: profile?.department,
+      phone: profile?.phone,
+      employee_id: profile?.employee_id
     } as User
     
     // 保存到localStorage
