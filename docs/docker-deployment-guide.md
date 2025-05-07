@@ -1,140 +1,130 @@
-# Docker 部署指南
+# AWS Amplify 部署指南
 
-本文檔說明如何使用 Docker 和雲服務器部署錡利科技管理系統。
+本文檔說明如何使用 AWS Amplify 部署錡利科技管理系統。
 
 ## 準備工作
 
-1. 一台雲服務器（建議配置：2 核心 CPU，4GB 記憶體，50GB 硬碟）
+1. AWS 帳戶
 2. 域名（可選，但建議有）
 3. 安裝以下軟體：
-   - Docker
-   - Docker Compose
    - Git
+   - Node.js 18 或更高版本
+   - npm 或 yarn
 
 ## 部署步驟
 
-### 1. 克隆代碼倉庫
+### 1. 設置 AWS Amplify
 
-```bash
-git clone <您的代碼倉庫地址>
-cd erp-system
+1. 登入 AWS 控制台
+2. 進入 AWS Amplify 服務
+3. 點擊「新建應用」>「從 Git 倉庫託管」
+4. 選擇您的代碼倉庫（GitHub、BitBucket 或 AWS CodeCommit）
+5. 授權 AWS Amplify 訪問您的代碼倉庫
+
+### 2. 配置構建設定
+
+在 AWS Amplify 控制台中，配置以下構建設定：
+
+```yaml
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - npm ci
+    build:
+      commands:
+        - npm run build
+  artifacts:
+    baseDirectory: .next
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - node_modules/**/*
 ```
 
-### 2. 設置環境變數
+### 3. 設置環境變數
 
-複製環境變數範例文件並填入您的 Supabase 設定：
+在 AWS Amplify 控制台中，添加以下環境變數：
 
-```bash
-cp .env.local.example .env.local
-# 編輯 .env.local 文件，填入 Supabase URL 和匿名密鑰
-```
+- `NEXT_PUBLIC_SUPABASE_URL`：您的 Supabase 專案 URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`：您的 Supabase 匿名密鑰
 
-### 3. 設置 Nginx（如果需要 HTTPS）
+### 4. 配置自定義域名（可選）
 
-如果您想使用自定義域名和 HTTPS，需要準備 SSL 證書：
+如果您想使用自定義域名：
 
-```bash
-# 建立證書目錄
-mkdir -p nginx/certificates
+1. 在 AWS Amplify 控制台中，進入「域名管理」
+2. 點擊「添加域名」
+3. 輸入您的域名
+4. 按照指示配置 DNS 記錄
 
-# 使用 Let's Encrypt 獲取證書
-# 將證書和密鑰放入 nginx/certificates 目錄
-# 證書文件命名為 fullchain.pem
-# 密鑰文件命名為 privkey.pem
-```
+### 5. 部署應用
 
-編輯 `nginx/conf/default.conf` 文件，將 `server_name` 更改為您的實際域名。
-
-### 4. 構建和啟動 Docker 容器
-
-```bash
-# 構建並啟動所有服務
-docker-compose up -d --build
-
-# 只構建和啟動應用，不包括 Nginx（如果您不需要 HTTPS）
-docker-compose up -d --build erp-app
-```
-
-### 5. 檢查應用狀態
-
-```bash
-# 檢查容器狀態
-docker-compose ps
-
-# 查看應用日誌
-docker-compose logs -f erp-app
-```
+1. 提交您的代碼到 Git 倉庫
+2. AWS Amplify 將自動檢測變更並開始部署
+3. 您可以在 AWS Amplify 控制台中監控部署進度
 
 ## 更新應用
 
-當需要更新應用時，請執行以下步驟：
+當需要更新應用時，只需：
 
-```bash
-# 拉取最新代碼
-git pull
-
-# 重新構建和啟動容器
-docker-compose up -d --build
-```
+1. 提交您的代碼變更到 Git 倉庫
+2. AWS Amplify 將自動檢測變更並重新部署
 
 ## 生產環境優化
 
 ### 1. 安全性加固
 
-- 啟用防火牆，只開放必要的端口（如 80、443）
-- 設定 fail2ban 防止暴力攻擊
-- 定期更新系統和 Docker
+- 啟用 AWS WAF 保護您的應用
+- 使用 AWS Shield 防護 DDoS 攻擊
+- 定期更新依賴套件
 
 ### 2. 備份設置
 
 建立定期備份計劃，備份以下內容：
 
 - Supabase 資料庫
-- 環境變數文件
-- SSL 證書
+- 環境變數配置
+- 應用程式代碼
 
 ### 3. 監控配置
 
 設置監控工具以便及時發現問題：
 
-- 使用 Prometheus + Grafana 監控容器和主機
-- 設置日誌聚合（如 ELK Stack）
+- 使用 AWS CloudWatch 監控應用性能
+- 設置日誌聚合
 - 配置警報通知
 
 ## 故障排除
 
-### 容器無法啟動
+### 部署失敗
 
-檢查日誌以找出錯誤原因：
+檢查 AWS Amplify 構建日誌以找出錯誤原因：
 
-```bash
-docker-compose logs erp-app
-```
+1. 在 AWS Amplify 控制台中查看構建日誌
+2. 檢查環境變數是否正確設置
+3. 確認構建命令是否正確
 
 ### 無法訪問應用
 
-1. 檢查容器是否正在運行：`docker-compose ps`
-2. 檢查防火牆設置，確保端口已開放
-3. 檢查 Nginx 配置是否正確
-
-### SSL 憑證問題
-
-如果遇到 SSL 憑證錯誤，請檢查：
-
-1. 證書是否放在正確位置
-2. 證書是否過期
-3. Nginx 配置中的證書路徑是否正確
+1. 檢查 AWS Amplify 部署狀態
+2. 確認域名配置是否正確
+3. 檢查 SSL 證書是否有效
 
 ## 擴展配置
 
 隨著業務增長，您可能需要擴展系統。考慮以下選項：
 
-1. 垂直擴展：增加服務器資源（CPU、記憶體）
-2. 水平擴展：部署多個應用實例並使用負載平衡器
+1. 使用 AWS CloudFront 進行內容分發
+2. 配置 AWS Route 53 進行 DNS 管理
+3. 使用 AWS Certificate Manager 管理 SSL 證書
 
 ## 聯絡支持
 
 如遇到任何部署問題，請聯繫：
 
+- AWS 支持：https://aws.amazon.com/support/
 - 技術支持郵箱：[聯絡方式]
 - 系統管理員：[聯絡方式] 
