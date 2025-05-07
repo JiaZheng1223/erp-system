@@ -12,9 +12,7 @@ export default function ProfileSettings() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    department: '',
-    phone: '',
-    employee_id: ''
+    phone: ''
   })
   const [isUpdating, setIsUpdating] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
@@ -31,9 +29,7 @@ export default function ProfileSettings() {
       setFormData({
         name: user.name || '',
         email: user.email || '',
-        department: user.department || '',
-        phone: user.phone || '',
-        employee_id: user.employee_id || ''
+        phone: user.phone || ''
       })
     }
   }, [user])
@@ -48,30 +44,23 @@ export default function ProfileSettings() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
     if (!user) return
-    
     try {
       setIsUpdating(true)
       setUpdateStatus(null)
-      
       const result = await updateUserProfile(user.id, {
         name: formData.name,
-        department: formData.department,
         phone: formData.phone
       })
-      
       if (result.error) {
         setUpdateStatus({
           success: false,
           message: result.error
         })
       } else {
-        // 更新上下文中的用戶資料
         if (result.user) {
           updateUser(result.user)
         }
-        
         setUpdateStatus({
           success: true,
           message: '個人資料已成功更新'
@@ -272,26 +261,6 @@ export default function ProfileSettings() {
           </div>
           
           <div>
-            <label htmlFor="department" className="block text-sm font-medium text-gray-700 mb-1">
-              部門
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FaBuilding className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                id="department"
-                name="department"
-                type="text"
-                value={formData.department}
-                onChange={handleInputChange}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                placeholder="請輸入您的部門"
-              />
-            </div>
-          </div>
-          
-          <div>
             <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
               聯絡電話
             </label>
@@ -310,29 +279,6 @@ export default function ProfileSettings() {
               />
             </div>
           </div>
-          
-          {user?.employee_id && (
-            <div>
-              <label htmlFor="employee_id" className="block text-sm font-medium text-gray-700 mb-1">
-                員工編號
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FaIdCard className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  id="employee_id"
-                  name="employee_id"
-                  type="text"
-                  value={formData.employee_id}
-                  readOnly
-                  disabled
-                  className="bg-gray-100 block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                />
-              </div>
-              <p className="mt-1 text-xs text-gray-500">員工編號由系統管理員設定，無法自行修改</p>
-            </div>
-          )}
 
           <div className="flex justify-end">
             <button

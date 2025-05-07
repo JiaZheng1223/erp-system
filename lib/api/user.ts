@@ -30,17 +30,17 @@ export async function updateUserProfile(userId: string, data: ProfileUpdateData)
       return { error: updateError.message }
     }
 
-    // 2. 更新profiles表中的用戶資料
+    // 2. 更新profiles表中的用戶資料（改為 upsert）
     const { error: profileError } = await supabase
       .from('profiles')
-      .update({
+      .upsert({
+        id: userId,
         name: data.name,
         phone: data.phone,
         department: data.department,
         avatar_url: data.avatar_url,
         updated_at: new Date()
-      })
-      .eq('id', userId)
+      }, { onConflict: 'id' })
     
     if (profileError) {
       console.error('更新用戶profiles表失敗:', profileError.message)

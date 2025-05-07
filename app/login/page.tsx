@@ -130,6 +130,12 @@ export default function LoginPage() {
           <div className="text-center text-xs text-gray-500 mt-4">
             &copy; {new Date().getFullYear()} 錡利科技. 版權所有.
           </div>
+
+          {/* 新增：註冊與忘記密碼連結 */}
+          <div className="flex justify-between mt-4 text-sm">
+            <Link href="/register" className="text-blue-600 hover:underline">註冊新帳號</Link>
+            <Link href="/forgot-password" className="text-blue-600 hover:underline">忘記密碼？</Link>
+          </div>
         </div>
       </div>
     </div>

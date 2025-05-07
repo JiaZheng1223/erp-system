@@ -142,4 +142,18 @@ export interface PurchaseItem {
   price?: number
   total?: number
   status?: string
+}
+
+// 成品類別
+export interface ProductCategory {
+  id: number
+  name: string
+  created_at?: string
+}
+
+// 成品效率
+export interface ProductEfficiency {
+  id: number
+  name: string
+  created_at?: string
 } 
